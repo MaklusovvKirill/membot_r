@@ -43,13 +43,19 @@ async def cmd_start(message: types.Message):
 
 
 async def send_daily_memes():
-    """
-    Отправляет случайный мем всем пользователям из базы.
-    Вызывается по расписанию.
-    """
+    """Отправляет случайный мем всем пользователям из базы."""
     user_ids = await user_db.get_all_users()
-    meme_url = get_random_meme()
-    logger.info(f"Отправка мема {meme_url} {len(user_ids)} пользователям...")
+    if not user_ids:
+        logger.info("Нет активных пользователей для рассылки.")
+        return
+
+    try:
+        meme_url = await get_random_meme()  # ← await обязателен!
+    except Exception as e:
+        logger.error(f"Не удалось получить мем: {e}")
+        return
+
+    logger.info(f"Отправка мема: {meme_url} ({len(user_ids)} пользователей)")
 
     for user_id in user_ids:
         try:
@@ -65,8 +71,9 @@ async def main():
 
     # Настройка планировщика
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(send_daily_memes, CronTrigger(hour=9, minute=0))
-    scheduler.add_job(send_daily_memes, CronTrigger(hour=18, minute=0))
+# scheduler.add_job(send_daily_memes, CronTrigger(hour=9, minute=0))
+# scheduler.add_job(send_daily_memes, CronTrigger(hour=18, minute=0))
+    scheduler.add_job(send_daily_memes, "interval", seconds=20)
     scheduler.start()
 
     logger.info("Бот запущен. Ожидание сообщений...")
